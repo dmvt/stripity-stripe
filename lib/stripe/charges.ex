@@ -58,13 +58,25 @@ defmodule Stripe.Charges do
       {:ok, charge} = Stripe.Charges.create(1000, params, key)
 
   """
-  def create(amount, params, key) do
+  def create(amount, params, key_or_headers) when is_bitstring(key_or_headers) do
     #default currency
     params = Keyword.put_new params, :currency, "USD"
     #drop in the amount
     params = Keyword.put_new params, :amount, amount
 
-    Stripe.make_request_with_key(:post, @endpoint, key, params)
+    Stripe.make_request_with_key(:post, @endpoint, key_or_headers, params)
+    |> Stripe.Util.handle_stripe_response
+  end
+
+  def create(amount, params, key_or_headers) when is_map(key_or_headers) do
+    #default currency
+    params = Keyword.put_new params, :currency, "USD"
+    #drop in the amount
+    params = Keyword.put_new params, :amount, amount
+
+    Stripe.make_request_with_key(
+      :post, @endpoint, Stripe.config_or_env_key, params, key_or_headers
+    )
     |> Stripe.Util.handle_stripe_response
   end
 
@@ -299,7 +311,7 @@ defmodule Stripe.Charges do
   Refund a charge. Accepts Stripe API key.
 
   Refunds a charge completely.
-  
+
   Note: use `refund_partial` if you just want to perform a partial refund.
 
   Returns a `{:ok, charge}` tuple.
@@ -309,8 +321,21 @@ defmodule Stripe.Charges do
       {:ok, charge} = Stripe.Charges.refund("charge_id", "my_key")
 
   """
-  def refund(id, key) do
-    Stripe.make_request_with_key(:post, "#{@endpoint}/#{id}/refunds", key)
+  def refund(id, key_or_headers) when is_bitstring(key_or_headers) do
+    Stripe.make_request_with_key(
+      :post, "#{@endpoint}/#{id}/refunds", key_or_headers
+    )
+    |> Stripe.Util.handle_stripe_response
+  end
+
+  def refund(id, key_or_headers) when is_map(key_or_headers) do
+    Stripe.make_request_with_key(
+      :post,
+      "#{@endpoint}/#{id}/refunds",
+      Stripe.config_or_env_key,
+      [],
+      key_or_headers
+    )
     |> Stripe.Util.handle_stripe_response
   end
 

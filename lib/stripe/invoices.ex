@@ -8,7 +8,7 @@
 
   All calls have a version with accept a key parameter for leveraging Connect.
 
-  (API ref:https://stripe.com/docs/api#invoices) 
+  (API ref:https://stripe.com/docs/api#invoices)
   """
 
   @endpoint "invoices"
@@ -66,7 +66,7 @@
   ## Example
 
   ```
-  {:ok, cnt} = Stripe.Invoices.count 
+  {:ok, cnt} = Stripe.Invoices.count
   ```
   """
   def count do
@@ -79,7 +79,7 @@
   ## Example
 
   ```
-  {:ok, cnt} = Stripe.Invoices.count key 
+  {:ok, cnt} = Stripe.Invoices.count key
   ```
   """
   def count(key) do
@@ -205,6 +205,50 @@
   """
   def pay(invoice_id, key) do
     Stripe.make_request_with_key(:post, "#{@endpoint}/#{invoice_id}/pay", key)
+    |> Stripe.Util.handle_stripe_response
+  end
+
+  @doc """
+  Updates an Invoice with the given parameters - all of which are optional.
+
+  ## Example
+
+  ```
+    new_fields = [
+      application_fee: 100,
+      description: "New description",
+    ]
+    {:ok, res} = Stripe.Invoices.update(invoice_id, new_fields)
+  ```
+  """
+  def update(invoice_id, params) do
+    update(invoice_id, params, Stripe.config_or_env_key)
+  end
+
+  @doc """
+  Updates a Invoice with the given parameters - all of which are optional.
+  Using a given stripe key to apply against the account associated.
+
+  ## Example
+  ```
+  {:ok, res} = Stripe.Invoices.update(invoice_id, new_fields, key)
+  ```
+  """
+  def update(invoice_id, params, key_or_headers) when is_bitstring(key_or_headers) do
+    Stripe.make_request_with_key(
+      :post, "#{@endpoint}/#{invoice_id}", key_or_headers, params
+    )
+    |> Stripe.Util.handle_stripe_response
+  end
+
+  def update(invoice_id, params, key_or_headers) when is_map(key_or_headers) do
+    Stripe.make_request_with_key(
+      :post,
+      "#{@endpoint}/#{invoice_id}",
+      Stripe.config_or_env_key,
+      params,
+      key_or_headers
+    )
     |> Stripe.Util.handle_stripe_response
   end
 end

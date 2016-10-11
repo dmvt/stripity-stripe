@@ -16,7 +16,7 @@ defmodule Stripe.Subscriptions do
   @endpoint "customers"
 
   @doc """
-  Starts a subscription for the specified customer. 
+  Starts a subscription for the specified customer.
 
   ## Example
 
@@ -30,12 +30,12 @@ defmodule Stripe.Subscriptions do
     {:ok, sub} = Stripe.Subscriptions.create customer_id, new_sub
   ```
   """
-  def create( customer_id, opts ) do
-    create customer_id, opts, Stripe.config_or_env_key
+  def create(customer_id, params) do
+    create customer_id, params, Stripe.config_or_env_key
   end
 
   @doc """
-  Starts a subscription for the specified customer using given api key. 
+  Starts a subscription for the specified customer using given api key.
 
   ## Example
 
@@ -46,16 +46,30 @@ defmodule Stripe.Subscriptions do
     ...
     ]
   ]
-  {:ok, sub} = Stripe.Subscriptions.create customer_id, opts, key
+  {:ok, sub} = Stripe.Subscriptions.create customer_id, new_sub, key
   ```
   """
-  def create(customer_id, opts, key) do
-    plan_id = Keyword.get opts, :plan
+  def create(customer_id, params, key_or_headers) when is_bitstring(key_or_headers) do
+    plan_id = Keyword.get params, :plan
 
-    Stripe.make_request_with_key(:post, "#{@endpoint}/#{customer_id}/subscriptions", key, opts)
+    Stripe.make_request_with_key(
+      :post, "#{@endpoint}/#{customer_id}/subscriptions", key_or_headers, params
+    )
     |> Stripe.Util.handle_stripe_response
   end
 
+  def create(customer_id, params, key_or_headers) when is_map(key_or_headers) do
+    plan_id = Keyword.get params, :plan
+
+    Stripe.make_request_with_key(
+      :post,
+      "#{@endpoint}/#{customer_id}/subscriptions",
+      Stripe.config_or_env_key,
+      params,
+      key_or_headers
+    )
+    |> Stripe.Util.handle_stripe_response
+  end
 
   @doc """
   Returns a subscription; customer_id and subscription_id are required.
@@ -150,11 +164,27 @@ defmodule Stripe.Subscriptions do
   Stripe.Subscriptions.cancel "customer_id", "subscription_id", key
   ```
   """
-  def cancel(customer_id, sub_id, opts, key) do
-    Stripe.make_request_with_key(:delete, "#{@endpoint}/#{customer_id}/subscriptions/#{sub_id}", key, opts)
+  def cancel(customer_id, sub_id, opts, key_or_headers) when is_bitstring(key_or_headers) do
+    Stripe.make_request_with_key(
+      :delete,
+      "#{@endpoint}/#{customer_id}/subscriptions/#{sub_id}",
+      key_or_headers,
+      opts
+    )
     |> Stripe.Util.handle_stripe_response
   end
-  
+
+  def cancel(customer_id, sub_id, opts, key_or_headers) when is_map(key_or_headers) do
+    Stripe.make_request_with_key(
+      :delete,
+      "#{@endpoint}/#{customer_id}/subscriptions/#{sub_id}",
+      Stripe.config_or_env_key,
+      opts,
+      key_or_headers
+    )
+    |> Stripe.Util.handle_stripe_response
+  end
+
   @doc """
   Cancel all subscriptions for account.
 
@@ -175,10 +205,18 @@ defmodule Stripe.Subscriptions do
   Stripe.Subscriptions.cancel_all customer_id, key
   ```
   """
-  def cancel_all(customer_id, opts, key) do
-    case all(customer_id, [], "", key) do
+  def cancel_all(customer_id, opts, key_or_headers) when is_bitstring(key_or_headers) do
+    case all(customer_id, [], "", key_or_headers, []) do
       {:ok, subs} ->
-        Enum.each subs, fn sub -> cancel(customer_id, sub["id"], opts, key) end
+        Enum.each subs, fn sub -> cancel(customer_id, sub["id"], opts, key_or_headers) end
+      {:error, err} -> raise err
+    end
+  end
+
+  def cancel_all(customer_id, opts, key_or_headers) when is_map(key_or_headers) do
+    case all(customer_id, [], "", Stripe.config_or_env_key, key_or_headers) do
+      {:ok, subs} ->
+        Enum.each subs, fn sub -> cancel(customer_id, sub["id"], opts, key_or_headers) end
       {:error, err} -> raise err
     end
   end
@@ -209,8 +247,8 @@ defmodule Stripe.Subscriptions do
   ```
 
   """
-  def all( customer_id, accum \\ [], starting_after \\ "") do
-    all customer_id, accum, starting_after, Stripe.config_or_env_key
+  def all(customer_id, accum \\ [], starting_after \\ "", headers \\ []) do
+    all customer_id, accum, starting_after, Stripe.config_or_env_key, headers
   end
 
   @doc """
@@ -223,20 +261,20 @@ defmodule Stripe.Subscriptions do
   ```
 
   """
-  def all( customer_id, accum, starting_after, key) do
-    case Stripe.Util.list_raw("#{@endpoint}/#{customer_id}/subscriptions", key,@max_fetch_size, starting_after) do
+  def all(customer_id, accum, starting_after, key, headers) do
+    case Stripe.Util.list_raw("#{@endpoint}/#{customer_id}/subscriptions", key, @max_fetch_size, starting_after, headers) do
       {:ok, resp}  ->
         case resp[:has_more] do
           true ->
             last_sub = List.last( resp[:data] )
-            all( customer_id, resp[:data] ++ accum, last_sub["id"], key )
+            all(customer_id, resp[:data] ++ accum, last_sub["id"], key, headers)
           false ->
             result = resp[:data] ++ accum
             {:ok, result}
         end
+      {:error, err} -> raise err
     end
   end
-
 
   @doc """
   Count total number of subscriptions.

@@ -54,11 +54,17 @@ defmodule Stripe.Customers do
   {:ok, res} = Stripe.Customers.create new_customer, key
   ```
   """
-  def create(params, key) do
-    Stripe.make_request_with_key(:post, @endpoint, key, params)
+  def create(params, key_or_headers) when is_bitstring(key_or_headers) do
+    Stripe.make_request_with_key(:post, @endpoint, key_or_headers, params)
     |> Stripe.Util.handle_stripe_response
   end
 
+  def create(params, key_or_headers) when is_map(key_or_headers) do
+    Stripe.make_request_with_key(
+      :post, @endpoint, Stripe.config_or_env_key, params, key_or_headers
+    )
+    |> Stripe.Util.handle_stripe_response
+  end
 
   @doc """
   Retrieves a given Customer with the specified ID. Returns 404 if not found.
@@ -115,11 +121,23 @@ defmodule Stripe.Customers do
   {:ok, res} = Stripe.Customers.update(customer_id, new_fields, key)
   ```
   """
-  def update(customer_id, params, key) do
-    Stripe.make_request_with_key(:post, "#{@endpoint}/#{customer_id}", key, params)
+  def update(customer_id, params, key_or_headers) when is_bitstring(key_or_headers) do
+    Stripe.make_request_with_key(
+      :post, "#{@endpoint}/#{customer_id}", key_or_headers, params
+    )
     |> Stripe.Util.handle_stripe_response
   end
 
+  def update(customer_id, params, key_or_headers) when is_map(key_or_headers) do
+    Stripe.make_request_with_key(
+      :post,
+      "#{@endpoint}/#{customer_id}",
+      Stripe.config_or_env_key,
+      params,
+      key_or_headers
+    )
+    |> Stripe.Util.handle_stripe_response
+  end
 
 
   @doc """

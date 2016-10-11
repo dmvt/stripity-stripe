@@ -34,7 +34,7 @@ defmodule Stripe.Cards do
 
   @doc """
   Create a card.
-  
+
   Creates a card for given owner type, owner ID using params.
 
   `params` must contain a "source" object. Inside the "source" object, the following parameters are required:
@@ -89,8 +89,21 @@ defmodule Stripe.Cards do
       {:ok, card} = Stripe.Cards.create(:customer, customer_id, params, key)
 
   """
-  def create(owner_type, owner_id, params, key) do
-    Stripe.make_request_with_key(:post, endpoint_for_entity(owner_type, owner_id), key, params)
+  def create(owner_type, owner_id, params, key_or_headers) when is_bitstring(key_or_headers) do
+    Stripe.make_request_with_key(
+      :post, endpoint_for_entity(owner_type, owner_id), key_or_headers, params
+    )
+    |> Stripe.Util.handle_stripe_response
+  end
+
+  def create(owner_type, owner_id, params, key_or_headers) when is_map(key_or_headers) do
+    Stripe.make_request_with_key(
+      :post,
+      endpoint_for_entity(owner_type, owner_id),
+      Stripe.config_or_env_key,
+      params,
+      key_or_headers
+    )
     |> Stripe.Util.handle_stripe_response
   end
 
@@ -240,11 +253,26 @@ defmodule Stripe.Cards do
       {:ok, deleted_card} = Stripe.Cards.delete("card_id", key)
 
   """
-  def delete(owner_type, owner_id, id,key) do
-    Stripe.make_request_with_key(:delete, "#{endpoint_for_entity(owner_type, owner_id)}/#{id}", key)
+  def delete(owner_type, owner_id, id, key_or_headers) when is_bitstring(key_or_headers) do
+    Stripe.make_request_with_key(
+      :delete,
+      "#{endpoint_for_entity(owner_type, owner_id)}/#{id}",
+      key_or_headers
+    )
     |> Stripe.Util.handle_stripe_response
   end
-  
+
+  def delete(owner_type, owner_id, id, key_or_headers) when is_map(key_or_headers) do
+    Stripe.make_request_with_key(
+      :delete,
+      "#{endpoint_for_entity(owner_type, owner_id)}/#{id}",
+      Stripe.config_or_env_key,
+      [],
+      key_or_headers
+    )
+    |> Stripe.Util.handle_stripe_response
+  end
+
   @doc """
   Delete all cards.
 
@@ -303,9 +331,9 @@ defmodule Stripe.Cards do
 
       {:ok, cards} = Stripe.Cards.all(:customer, customer_id, accum, starting_after)
 
-  """  
-  def all(owner_type, owner_id, accum \\ [], starting_after \\ "") do
-    all owner_type, owner_id, Stripe.config_or_env_key, accum, starting_after
+  """
+  def all(owner_type, owner_id, accum \\ [], starting_after \\ "", headers \\ []) do
+    all owner_type, owner_id, Stripe.config_or_env_key, accum, starting_after, headers
   end
 
   @doc """
@@ -324,14 +352,14 @@ defmodule Stripe.Cards do
 
       {:ok, cards} = Stripe.Cards.all(:customer, customer_id, accum, starting_after, key)
 
-  """  
-  def all(owner_type, owner_id, key, accum, starting_after) do
-    case Stripe.Util.list_raw("#{endpoint_for_entity(owner_type, owner_id)}",key, @max_fetch_size, starting_after) do
+  """
+  def all(owner_type, owner_id, key, accum, starting_after, headers) do
+    case Stripe.Util.list_raw("#{endpoint_for_entity(owner_type, owner_id)}", key, @max_fetch_size, starting_after, headers) do
       {:ok, resp}  ->
         case resp[:has_more] do
           true ->
             last_sub = List.last( resp[:data] )
-            all(owner_type, owner_id, key, resp[:data] ++ accum, last_sub["id"] )
+            all(owner_type, owner_id, key, resp[:data] ++ accum, last_sub["id"], headers)
           false ->
             result = resp[:data] ++ accum
             {:ok, result}
