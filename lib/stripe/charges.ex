@@ -139,10 +139,22 @@ defmodule Stripe.Charges do
       {:ok, charges} = Stripe.charges.list("my_key", 20) # Get a list of up to 20 charges
 
   """
-  def list(key, limit) when is_integer(limit) do
-    Stripe.make_request_with_key(:get, "#{@endpoint}?limit=#{limit}", key)
+  def list(key_or_headers, limit) when is_integer(limit) and is_bitstring(key_or_headers) do
+    Stripe.make_request_with_key(:get, "#{@endpoint}?limit=#{limit}", key_or_headers)
     |> Stripe.Util.handle_stripe_response
   end
+
+  def list(key_or_headers, limit) when is_integer(limit) and is_map(key_or_headers) do
+    Stripe.make_request_with_key(
+      :get,
+      "#{@endpoint}?limit=#{limit}",
+      Stripe.config_or_env_key,
+      [],
+      key_or_headers
+    )
+    |> Stripe.Util.handle_stripe_response
+  end
+
   @doc """
   Get a list of charges. Accepts Stripe API key.
 
@@ -161,8 +173,27 @@ defmodule Stripe.Charges do
       {:ok, charges} = Stripe.Charges.list("my_key", source: "card") # Get a list of charges for cards
 
   """
-  def list(key, params) do
-    Stripe.make_request_with_key(:get, "#{@endpoint}", key, %{}, %{}, [params: params])
+  def list(key_or_headers, params) when is_bitstring(key_or_headers) do
+    Stripe.make_request_with_key(
+      :get,
+      @endpoint,
+      key_or_headers,
+      [],
+      %{},
+      [params: params]
+    )
+    |> Stripe.Util.handle_stripe_response
+  end
+
+  def list(key_or_headers, params) when is_map(key_or_headers) do
+    Stripe.make_request_with_key(
+      :get,
+      @endpoint,
+      Stripe.config_or_env_key,
+      [],
+      key_or_headers,
+      [params: params]
+    )
     |> Stripe.Util.handle_stripe_response
   end
 
